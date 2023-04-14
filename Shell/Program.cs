@@ -17,7 +17,8 @@ static class Start {
    static void Test1 () {
       string expr = "(3 + 2) * 4 - 17 * -five * (two + 1 + 4 + 5)";
       var node = new Parser (new Tokenizer (expr)).Parse ();
-
+      Dictionary<string, NType> types = new () { ["five"] = NType.Int, ["two"] = NType.Int };
+      node.Accept (new ExprTyper (types));
       Console.WriteLine ("-----------------");
       Console.WriteLine ($"Expression = {expr}");
       Dictionary<string, int> vars = new () { ["five"] = 5, ["two"] = 2 };
