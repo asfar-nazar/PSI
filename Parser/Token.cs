@@ -38,25 +38,44 @@ public class Token {
    // Utility function used to echo an error to the console
    public void PrintError () {
       Console.OutputEncoding = Encoding.Unicode;
+      StringBuilder mSB = new ();
       if (Kind != ERROR) throw new Exception ("PrintError called on a non-error token");
+      string fileName = $"File: {Source.FileName}";
+      mSB.AppendLine (fileName);
+      int cPos = fileName.Length;
+      mSB.AppendLine ($"\u2500\u2500\u2500\u252c{string.Join ("", Enumerable.Repeat ("\u2500", cPos - 3))}");
+      string preceding = mSB.ToString () + PrecedingLines (3);
+      preceding = preceding.TrimEnd ('\n');
+      // No. of spaces after 'line no|'
+      cPos = Column + preceding.Split ('\n').Last ()[4..].TakeWhile (a => a is ' ').Count () - 1;
+      string eCarat = "\n" + string.Join ("", Enumerable.Repeat (' ', cPos)) + "^\n";
+      preceding += eCarat;
+      string eText = string.Join ("", Enumerable.Repeat (' ', 1 + cPos - Text.Length / 2)) + Text + "\n";
+      string succeeding = SucceedingLines (2);
+      Console.Write (preceding);
       Console.ForegroundColor = ConsoleColor.Yellow;
-      Console.Write ($"File: {Source.FileName}");
-      var cPos = Console.CursorLeft;
-      Console.WriteLine ($"\n\u2500\u2500\u2500\u252c{string.Join ("", Enumerable.Repeat ("\u2500", cPos - 3))}");
-      var lines = Source.Lines;
-      if (Line < lines.Length - 3) Console.WriteLine ($"{Line - 2,3}\u2502{lines[Line - 3]}");
-      if (Line < lines.Length - 2) Console.WriteLine ($"{Line - 1,3}\u2502{lines[Line - 2]}");
-      if (Line < lines.Length - 1) Console.WriteLine ($"{Line,3}\u2502{lines[Line - 1]}");
-      cPos = Column + lines[Line - 1].TakeWhile (a => a is ' ').Count () - 1;
-      Console.CursorLeft = cPos;
-      Console.WriteLine ("^");
-      int endPos = cPos + Text.Length / 2;
-      cPos = 1 + cPos - Text.Length / 2 - (endPos >= Console.WindowWidth ? Console.WindowWidth - endPos : 0);
-      Console.CursorLeft = cPos > 0 ? cPos : 0;
-      Console.WriteLine ($"{Text}");
-      if (Line < lines.Length + 2) Console.WriteLine ($"{Line + 1,3}\u2502{lines[Line + 1]}");
-      if (Line < lines.Length + 1) Console.WriteLine ($"{Line + 2,3}\u2502{lines[Line + 2]}");
-      Console.ResetColor ();
+      Console.Write (eText);
+      Console.ResetColor ();     
+      Console.Write (succeeding);
+
+      // Returns 'nLines - 1' preceding lines and the error line
+      string PrecedingLines (int nLines) {
+         var lines = Source.Lines;
+         string text = "";
+         for (int i = nLines; i > 0; i--) {
+            if (Line - i >= 0) text += $"{Line - i + 1,3}\u2502{lines?[Line - i]}\n";
+         }
+         return text;
+      }
+      // Returns 'nLines' no. of lines after the error line
+      string SucceedingLines (int nLines) {
+         var lines = Source.Lines;
+         string text = "";
+         for (int i = 1; i <= nLines; i++) {
+            if (Line + i < lines?.Length) text += $"{Line + i,3}\u2502{lines?[Line + i]}\n";
+         }
+         return text;
+      }
    }
 
    // Helper used by the parser (maps operator sequences to E values)

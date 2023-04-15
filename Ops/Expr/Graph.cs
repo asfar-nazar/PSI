@@ -25,8 +25,7 @@ public class ExprGrapher : Visitor<int> {
    }
 
    public override int Visit (NFnCall function) {
-      List<int> args = new (); 
-      function.Params.ToList ().ForEach (a => args.Add (a.Accept (this)));
+      var args = function.Params.Select (a => a.Accept (this)).ToList ();
       int id = NewNode ($"([{function.Name.Text} : {function.Type}])");
       args.ForEach (a => mSB.AppendLine ($"id{mID} --> id{a};"));
       return id;
