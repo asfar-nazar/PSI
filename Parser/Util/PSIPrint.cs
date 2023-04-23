@@ -20,11 +20,85 @@ public class PSIPrint : Visitor<StringBuilder> {
             NWrite ($"{g.Select (a => a.Name).ToCSV ()} : {g.Key};");
          N--;
       }
+      d.Procs.ForEach (a => Visit (a));
+      d.Fns.ForEach (a => Visit (a));
       return S;
    }
 
    public override StringBuilder Visit (NVarDecl d)
       => NWrite ($"{d.Name} : {d.Type}");
+
+   internal override StringBuilder Visit (NFnDecl f) {
+      NWrite ($"function {f.Name} (");
+      foreach (var g in f.Pars.GroupBy (a => a.Type))
+         Write ($"{g.Select (a => a.Name).ToCSV ()} : {g.Key};");
+      Write ($"): {f.Type};");
+      Visit (f.Block);
+      return S;
+   }
+
+   internal override StringBuilder Visit (NProcDecl p) {
+      NWrite ($"procedure {p.Name} (");
+      foreach (var g in p.Pars.GroupBy (a => a.Type))
+         Write ($"{g.Select (a => a.Name).ToCSV ()} : {g.Key};");
+      Write ($");");
+      Visit (p.Block);
+      return S;
+   }
+
+   internal override StringBuilder Visit (NIfStmt i) {
+      NWrite ($"if ("); Visit (i.Expr); Write (") then");
+      N++;
+      Visit (i.Stmt);
+      N--;
+      return S;
+   }
+
+   internal override StringBuilder Visit (NElseStmt e) {
+      Visit (e.IfStm); NWrite ("else"); N++;
+      Visit (e.Stmt); N--;
+      return S;
+   }
+
+   internal override StringBuilder Visit (NWhileStmt nWhileStmt) {
+      NWrite ("while ");  
+      Visit (nWhileStmt.Expr); 
+      Write (" do "); N++;
+      Visit(nWhileStmt.Stmt); N--;
+      return S;
+   }
+
+   internal override StringBuilder Visit (NRepeatStmt nRepeatStmt) {
+      NWrite ("repeat"); N++;
+      nRepeatStmt.Stmts.ForEach (a=> Visit (a)); N--;
+      NWrite ("until ");
+      Visit (nRepeatStmt.Expr); NWrite ("");
+      return S;
+   }
+
+   internal override StringBuilder Visit (NForStmt nForStmt) {
+      NWrite ("for ");
+      Write ($"{nForStmt.Assign.Name} := "); nForStmt.Assign.Expr.Accept (this); 
+      string t = nForStmt.Decrement ? " DOWNTO ": " TO " ;
+      Write (t);
+      Visit (nForStmt.Expr); 
+      Write (" do"); N++;
+      Visit (nForStmt.Stmt); N--;
+      return S;
+   }
+
+   internal override StringBuilder Visit (NReadStmt nReadStmt) 
+      => NWrite ($"read ({nReadStmt.Identifiers.Select (a => a.Name).ToCSV ()});");
+
+   internal override StringBuilder Visit (NCallStmt nCallStmt) {
+      NWrite (""); 
+      Visit (nCallStmt.Name);
+      Write (" (");
+      for (int i = 0; i < nCallStmt.Args.Length; i++) {
+         if (i > 0) Write (", "); nCallStmt.Args[i].Accept (this);
+      }
+      return Write (")");
+   }
 
    public override StringBuilder Visit (NCompoundStmt b) {
       NWrite ("begin"); N++;  Visit (b.Stmts); N--; return NWrite ("end"); 

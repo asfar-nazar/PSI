@@ -31,9 +31,15 @@ public class Parser {
    // declarations = [var-decls] [procfn-decls] .
    NDeclarations Declarations () {
       List<NVarDecl> vars = new ();
+      List<NFnDecl> fns = new ();
+      List<NProcDecl> procs = new ();
       if (Match (VAR)) 
          do { vars.AddRange (VarDecls ()); Expect (SEMI); } while (Peek (IDENT));
-      return new (vars.ToArray ());
+      while (Peek (FUNCTION, PROCEDURE)) {
+         if (Match (FUNCTION)) fns.Add (FnDecl ());
+         if (Match (PROCEDURE)) procs.Add (ProcDecl ());         
+      }
+      return new (vars.ToArray (), procs.ToArray (), fns.ToArray ());
    }
 
    // ident-list = IDENT { "," IDENT }
@@ -47,6 +53,32 @@ public class Parser {
    NVarDecl[] VarDecls () {
       var names = IdentList (); Expect (COLON); var type = Type ();
       return names.Select (a => new NVarDecl (a, type)).ToArray ();
+   }
+
+   //paramlist = "(" var-decl { "," var-decl } ")"
+   NVarDecl[] ParamList () {
+      Expect (OPEN);
+      List<NVarDecl> pars = new ();
+      do { pars.AddRange (VarDecls ()); } while (Match (COMMA));
+      Expect (CLOSE);
+      return pars.ToArray ();
+   }
+
+   // "function" IDENT paramlist ":" type; block ";" 
+   NFnDecl FnDecl () {
+      var name = Expect (IDENT);
+      var pars = ParamList (); Expect (COLON); 
+      var type = Type (); Expect (SEMI);
+      var block = Block (); Expect (SEMI);
+      return new NFnDecl (name, pars, type, block);
+   }
+
+   // "procedure" IDENT paramlist; block ";" 
+   NProcDecl ProcDecl () {
+      var name = Expect (IDENT);
+      var pars = ParamList (); Expect (SEMI);
+      var block = Block (); Match (SEMI);
+      return new NProcDecl (name, pars, block);
    }
 
    // type = integer | real | boolean | string | char
@@ -64,12 +96,63 @@ public class Parser {
    //                      goto-stmt | if-stmt | while-stmt | repeat-stmt |
    //                      compound-stmt | for-stmt | case-stmt
    NStmt Stmt () {
+      if (Peek (BEGIN)) return CompoundStmt ();
       if (Match (WRITE, WRITELN)) return WriteStmt ();
       if (Match (IDENT)) {
          if (Match (ASSIGN)) return AssignStmt ();
+         if (Peek (OPEN)) return CallStmt ();
       }
+      if (Match (IF)) return IfElseStatement ();
+      if (Match (FOR)) return ForStatement ();
+      if (Match (READ)) return ReadStmt ();
+      if (Match (WHILE)) return WhileStatement ();
+      if (Match (REPEAT)) return RepeatStatement ();
       Unexpected ();
       return null!;
+   }
+
+   NCallStmt CallStmt () => new (new (Prev), ArgList ());
+
+
+   // "if" expression "then" statement [ "else" statement ] 
+   NStmt IfElseStatement () {
+      var expr = Expression (); Expect (THEN);
+      var stmt = Stmt ();
+      var ifStm = new NIfStmt (expr, stmt);
+      Expect (SEMI);
+      if (Match (ELSE)) { 
+         var stm = Stmt ();
+         return new NElseStmt (ifStm, stm);
+      } return ifStm;
+   }
+
+   // "for" IDENT ":=" expression ( "to" | "downto" ) expression "do" statement .
+   NForStmt ForStatement () {
+      var iter = Expect (IDENT); Expect (ASSIGN);
+      var expr = Expression ();
+      NAssignStmt assign = new (iter, expr);
+      bool dec = Match (DOWNTO);
+      if (!dec) Expect (TO);
+      expr = Expression (); Expect (DO);
+      var stmt = Stmt ();
+      return new (assign, expr, stmt, dec);
+   }
+
+   // "while" expression "do" statement .
+   NWhileStmt WhileStatement () {
+      var expr = Expression (); Expect (DO);
+      var stmt = Stmt ();
+      return new (expr, stmt);
+   }
+
+   // "repeat" statement { ";" statement } "until" expression .
+   NRepeatStmt RepeatStatement () {
+      List<NStmt> stmts = new ();
+      stmts.Add (Stmt ());
+      while (Match (SEMI) && !Peek (UNTIL)) stmts.Add (Stmt ()); 
+      Expect (UNTIL);
+      NRepeatStmt stmt = new (stmts.ToArray (), Expression ());
+      return stmt;
    }
 
    // compound-stmt = "begin" [ statement { ";" statement } ] "end" .
@@ -83,6 +166,14 @@ public class Parser {
    // write-stmt =  ( "writeln" | "write" ) arglist .
    NWriteStmt WriteStmt () 
       => new (Prev.Kind == WRITELN, ArgList ());
+
+   // read-stmt = "read" "(" identlist ")" .
+   NReadStmt ReadStmt () {
+      Expect (OPEN);
+      NReadStmt rStm = new (IdentList ().Select (a => new NIdentifier (a)).ToArray ());
+      Expect (CLOSE);
+      return rStm;
+   }
 
    // assign-stmt = IDENT ":=" expr .
    NAssignStmt AssignStmt () 
