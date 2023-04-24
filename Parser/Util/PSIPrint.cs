@@ -20,7 +20,6 @@ public class PSIPrint : Visitor<StringBuilder> {
             NWrite ($"{g.Select (a => a.Name).ToCSV ()} : {g.Key};");
          N--;
       }
-      d.Procs.ForEach (a => Visit (a));
       d.Fns.ForEach (a => Visit (a));
       return S;
    }
@@ -29,34 +28,25 @@ public class PSIPrint : Visitor<StringBuilder> {
       => NWrite ($"{d.Name} : {d.Type}");
 
    internal override StringBuilder Visit (NFnDecl f) {
-      NWrite ($"function {f.Name} (");
+      var key = f.Type is NType.Void ? "procedure" : "function";
+      NWrite ($"{key} {f.Name} (");
       foreach (var g in f.Pars.GroupBy (a => a.Type))
-         Write ($"{g.Select (a => a.Name).ToCSV ()} : {g.Key};");
-      Write ($"): {f.Type};");
+         Write ($"{g.Select (a => a.Name).ToCSV ()}: {g.Key})");
+      if (f.Type != NType.Void) Write ($": {f.Type}");
+      Write (";");
       Visit (f.Block);
-      return S;
-   }
-
-   internal override StringBuilder Visit (NProcDecl p) {
-      NWrite ($"procedure {p.Name} (");
-      foreach (var g in p.Pars.GroupBy (a => a.Type))
-         Write ($"{g.Select (a => a.Name).ToCSV ()} : {g.Key};");
-      Write ($");");
-      Visit (p.Block);
       return S;
    }
 
    internal override StringBuilder Visit (NIfStmt i) {
       NWrite ($"if ("); Visit (i.Expr); Write (") then");
       N++;
-      Visit (i.Stmt);
+      Visit (i.IfPart);
       N--;
-      return S;
-   }
-
-   internal override StringBuilder Visit (NElseStmt e) {
-      Visit (e.IfStm); NWrite ("else"); N++;
-      Visit (e.Stmt); N--;
+      if (i.ElsePart != null) {
+         NWrite ("else"); N++;
+         Visit (i.ElsePart); N--;
+      }
       return S;
    }
 
@@ -78,12 +68,12 @@ public class PSIPrint : Visitor<StringBuilder> {
 
    internal override StringBuilder Visit (NForStmt nForStmt) {
       NWrite ("for ");
-      Write ($"{nForStmt.Assign.Name} := "); nForStmt.Assign.Expr.Accept (this); 
-      string t = nForStmt.Decrement ? " DOWNTO ": " TO " ;
+      Write ($"{nForStmt.Var} := "); nForStmt.Start.Accept (this); 
+      string t = nForStmt.Increment ? " TO ": " DOWNTO " ;
       Write (t);
-      Visit (nForStmt.Expr); 
+      Visit (nForStmt.End); 
       Write (" do"); N++;
-      Visit (nForStmt.Stmt); N--;
+      Visit (nForStmt.Body); N--;
       return S;
    }
 
@@ -97,7 +87,7 @@ public class PSIPrint : Visitor<StringBuilder> {
       for (int i = 0; i < nCallStmt.Args.Length; i++) {
          if (i > 0) Write (", "); nCallStmt.Args[i].Accept (this);
       }
-      return Write (")");
+      return Write (");");
    }
 
    public override StringBuilder Visit (NCompoundStmt b) {

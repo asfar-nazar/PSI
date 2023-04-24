@@ -20,7 +20,7 @@ public record NBlock (NDeclarations Decls, NCompoundStmt Body) : Node {
 }
 
 // The declarations section precedes the body of every block
-public record NDeclarations (NVarDecl[] Vars, NProcDecl[] Procs, NFnDecl[] Fns) : Node {
+public record NDeclarations (NVarDecl[] Vars, NFnDecl[] Fns) : Node {
    public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
 }
 
@@ -29,15 +29,11 @@ public record NVarDecl (Token Name, NType Type) : Node {
    public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
 }
 
-// Declares a Function (with a type)
+// Declares a Function (with a type) / Procedure (type is void)
 public record NFnDecl (Token Name, NVarDecl[] Pars, NType Type, NBlock Block) : Node {
    public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
 }
 
-// Declares a Procedure (with a type)
-public record NProcDecl (Token Name, NVarDecl[] Pars, NBlock Block) : Node {
-   public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
-}
 #endregion
 
 #region Statements -------------------------------------------------------------
@@ -64,13 +60,8 @@ public record NAssignStmt (Token Name, NExpr Expr) : NStmt {
    public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
 }
 
-// An If statement
-public record NIfStmt (NExpr Expr, NStmt Stmt) : NStmt {
-   public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
-}
-
-// An Else statement
-public record NElseStmt (NIfStmt IfStm, NStmt Stmt) : NStmt {
+// An If - else statement
+public record NIfStmt (NExpr Expr, NStmt IfPart, NStmt? ElsePart) : NStmt {
    public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
 }
 
@@ -85,13 +76,12 @@ public record NRepeatStmt (NStmt[] Stmts, NExpr Expr) : NStmt {
 }
 
 // A Repeat statement
-public record NForStmt (NAssignStmt Assign, NExpr Expr, NStmt Stmt, bool Decrement) : NStmt {
+public record NForStmt (Token Var, NExpr Start, bool Increment, NExpr End, NStmt Body) : NStmt {
    public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
 }
 
 // Call statement
 public record NCallStmt (NIdentifier Name, NExpr[] Args) : NStmt {
-
    public override T Accept<T> (Visitor<T> visitor) => visitor.Visit (this);
 }
 

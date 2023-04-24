@@ -32,14 +32,11 @@ public class Parser {
    NDeclarations Declarations () {
       List<NVarDecl> vars = new ();
       List<NFnDecl> fns = new ();
-      List<NProcDecl> procs = new ();
       if (Match (VAR)) 
          do { vars.AddRange (VarDecls ()); Expect (SEMI); } while (Peek (IDENT));
-      while (Peek (FUNCTION, PROCEDURE)) {
-         if (Match (FUNCTION)) fns.Add (FnDecl ());
-         if (Match (PROCEDURE)) procs.Add (ProcDecl ());         
-      }
-      return new (vars.ToArray (), procs.ToArray (), fns.ToArray ());
+      while (Peek (FUNCTION, PROCEDURE)) 
+         fns.Add (FnDecl ());             
+      return new (vars.ToArray (), fns.ToArray ());
    }
 
    // ident-list = IDENT { "," IDENT }
@@ -66,19 +63,15 @@ public class Parser {
 
    // "function" IDENT paramlist ":" type; block ";" 
    NFnDecl FnDecl () {
+      bool fn = Match (FUNCTION);
+      if (!fn) Match (PROCEDURE);
       var name = Expect (IDENT);
-      var pars = ParamList (); Expect (COLON); 
-      var type = Type (); Expect (SEMI);
-      var block = Block (); Expect (SEMI);
-      return new NFnDecl (name, pars, type, block);
-   }
-
-   // "procedure" IDENT paramlist; block ";" 
-   NProcDecl ProcDecl () {
-      var name = Expect (IDENT);
-      var pars = ParamList (); Expect (SEMI);
+      var pars = ParamList (); 
+      if (fn) Expect (COLON); 
+      var type = fn ? Type () : Void; 
+      Expect (SEMI);
       var block = Block (); Match (SEMI);
-      return new NProcDecl (name, pars, block);
+      return new NFnDecl (name, pars, type, block);
    }
 
    // type = integer | real | boolean | string | char
@@ -117,32 +110,29 @@ public class Parser {
    // "if" expression "then" statement [ "else" statement ] 
    NStmt IfElseStatement () {
       var expr = Expression (); Expect (THEN);
-      var stmt = Stmt ();
-      var ifStm = new NIfStmt (expr, stmt);
+      var ifPart = Stmt ();
+      NStmt? elsePart = null;
       Expect (SEMI);
-      if (Match (ELSE)) { 
-         var stm = Stmt ();
-         return new NElseStmt (ifStm, stm);
-      } return ifStm;
+      if (Match (ELSE)) 
+         elsePart = Stmt ();
+      return new NIfStmt (expr, ifPart, elsePart);
    }
 
    // "for" IDENT ":=" expression ( "to" | "downto" ) expression "do" statement .
    NForStmt ForStatement () {
       var iter = Expect (IDENT); Expect (ASSIGN);
-      var expr = Expression ();
-      NAssignStmt assign = new (iter, expr);
-      bool dec = Match (DOWNTO);
-      if (!dec) Expect (TO);
-      expr = Expression (); Expect (DO);
-      var stmt = Stmt ();
-      return new (assign, expr, stmt, dec);
+      var start = Expression ();
+      bool inc = Match (TO);
+      if (!inc) Expect (DOWNTO);
+      var end = Expression (); Expect (DO);
+      var body = Stmt ();
+      return new (iter, start, inc, end, body);
    }
 
    // "while" expression "do" statement .
    NWhileStmt WhileStatement () {
       var expr = Expression (); Expect (DO);
-      var stmt = Stmt ();
-      return new (expr, stmt);
+      return new (expr, Stmt ());
    }
 
    // "repeat" statement { ";" statement } "until" expression .
@@ -151,8 +141,7 @@ public class Parser {
       stmts.Add (Stmt ());
       while (Match (SEMI) && !Peek (UNTIL)) stmts.Add (Stmt ()); 
       Expect (UNTIL);
-      NRepeatStmt stmt = new (stmts.ToArray (), Expression ());
-      return stmt;
+      return new (stmts.ToArray (), Expression ());
    }
 
    // compound-stmt = "begin" [ statement { ";" statement } ] "end" .

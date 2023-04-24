@@ -21,8 +21,6 @@ public abstract class Visitor<T> {
    public abstract T Visit (NFnCall f);
    internal abstract T Visit (NFnDecl nFnDecl);
    internal abstract T Visit (NIfStmt nIfStmt);
-   internal abstract T Visit (NElseStmt nElseStmt);
-   internal abstract T Visit (NProcDecl nProcDecl);
    internal abstract T Visit (NWhileStmt nWhileStmt);
    internal abstract T Visit (NRepeatStmt nRepeatStmt);
    internal abstract T Visit (NForStmt nForStmt);
