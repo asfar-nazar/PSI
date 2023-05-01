@@ -61,10 +61,10 @@ public class TypeAnalyze : Visitor<NType> {
       mSymbols = new SymTable { Parent = mSymbols };
       f.Params.ForEach (a => a.Accept (this));
       var rSt = new NVarDecl (f.Name, f.Return, false);
-      mSymbols.Vars.Add (rSt);
+      if (f.Return != Void) mSymbols.Vars.Add (rSt);
       f.Body?.Accept (this);
       mSymbols = mSymbols.Parent;
-      if (!rSt.Assigned) throw new ParseException (f.Name, "Function result not set");
+      if (f.Return != Void && !rSt.Assigned) throw new ParseException (f.Name, "Function result not set");
       return f.Return;
    }
    #endregion
