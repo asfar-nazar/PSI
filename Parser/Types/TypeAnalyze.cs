@@ -26,6 +26,7 @@ public class TypeAnalyze : Visitor<NType> {
       Visit (d.Consts); Visit (d.Vars); 
       return Visit (d.Funcs);
    }
+
    bool AlreadyExists (Node n) {
       var name = n switch { NConstDecl c => c.Name, NVarDecl v => v.Name, NFnDecl f => f.Name, _ => null };
       var node = mSymbols.Consts.FirstOrDefault (a => a.Name == name);
@@ -186,11 +187,9 @@ public class TypeAnalyze : Visitor<NType> {
             NUnary nU => nU.Op,
             NBinary nB => nB.Op,
             _ => f.Name,
-         };
-         
+         };         
          f.Params[i] = AddTypeCast (name, f.Params[i], fn.Params[i].Type);
-      }
-      
+      }    
       return f.Type = fn.Return;
    }
 
