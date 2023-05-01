@@ -23,17 +23,47 @@ public class TypeAnalyze : Visitor<NType> {
    }
 
    public override NType Visit (NDeclarations d) {
-      Visit (d.Vars); return Visit (d.Funcs);
+      Visit (d.Consts); Visit (d.Vars); 
+      return Visit (d.Funcs);
+   }
+   bool AlreadyExists (Node n) {
+      var name = n switch { NConstDecl c => c.Name, NVarDecl v => v.Name, NFnDecl f => f.Name, _ => null };
+      var node = mSymbols.Consts.FirstOrDefault (a => a.Name == name);
+      if (node is null) mSymbols.Vars.FirstOrDefault (a => a.Name == name);
+      if (node is null) mSymbols.Funcs.FirstOrDefault (a => a.Name == name);
+      if (node is not null) return true;
+      return false;
    }
 
    public override NType Visit (NVarDecl d) {
+      if (AlreadyExists (d)) return Error;
       mSymbols.Vars.Add (d);
       return d.Type;
    }
 
+   public override NType Visit (NConstDecl nConstDecl) {
+      if (AlreadyExists (nConstDecl)) return Error;
+      mSymbols.Consts.Add (nConstDecl);
+      return nConstDecl.Value.Kind switch {
+         L_INTEGER => Int,
+         L_REAL => Real,
+         L_BOOLEAN => Bool,
+         L_STRING => String,
+         L_CHAR => Char,
+         _ => Error,
+      };
+   }
+   
    public override NType Visit (NFnDecl f) {
+      if (AlreadyExists (f)) return Error;
       mSymbols.Funcs.Add (f);
+      mSymbols = new SymTable { Parent = mSymbols };
+      f.Params.ForEach (a => a.Accept (this));
+      mSymbols.Vars.Add (new NVarDecl (f.Name, f.Return, false));
+      f.Body?.Accept (this);
+      mSymbols = mSymbols.Parent;
       return f.Return;
+
    }
    #endregion
 
@@ -46,6 +76,7 @@ public class TypeAnalyze : Visitor<NType> {
          throw new ParseException (a.Name, "Unknown variable");
       a.Expr.Accept (this);
       a.Expr = AddTypeCast (a.Name, a.Expr, v.Type);
+      v.Assigned = true;
       return v.Type;
    }
    
@@ -88,7 +119,8 @@ public class TypeAnalyze : Visitor<NType> {
    }
 
    public override NType Visit (NCallStmt c) {
-      throw new NotImplementedException ();
+      var f = mSymbols.Find (c.Name.Text);
+      return f == null ? Error : (f as NFnDecl).Return;
    }
    #endregion
 
@@ -102,7 +134,7 @@ public class TypeAnalyze : Visitor<NType> {
    }
 
    public override NType Visit (NUnary u) 
-      => u.Expr.Accept (this);
+      => u.Type = u.Expr.Accept (this);
 
    public override NType Visit (NBinary bin) {
       NType a = bin.Left.Accept (this), b = bin.Right.Accept (this);
@@ -134,13 +166,32 @@ public class TypeAnalyze : Visitor<NType> {
    }
 
    public override NType Visit (NIdentifier d) {
-      if (mSymbols.Find (d.Name.Text) is NVarDecl v) 
-         return d.Type = v.Type;
+      if (mSymbols.Find (d.Name.Text) is NVarDecl v)
+         if (v.Assigned) return d.Type = v.Type;
+         else return Error;
       throw new ParseException (d.Name, "Unknown variable");
    }
 
    public override NType Visit (NFnCall f) {
-      throw new NotImplementedException ();
+      var n = mSymbols.Find (f.Name.Text);
+      if (n == null) return Error;
+      var fn = (n as NFnDecl);
+      if (fn.Params.Length != f.Params.Length) return Error;
+      f.Params.ForEach (a => a.Accept (this));
+      for (int i = 0; i < fn.Params.Length; i++) {
+         Token name = f.Params[i] switch {
+            NFnCall nF => f.Name,
+            NLiteral nL => nL.Value,
+            NIdentifier nI => nI.Name,
+            NUnary nU => nU.Op,
+            NBinary nB => nB.Op,
+            _ => f.Name,
+         };
+         
+         f.Params[i] = AddTypeCast (name, f.Params[i], fn.Params[i].Type);
+      }
+      
+      return f.Type = fn.Return;
    }
 
    public override NType Visit (NTypeCast c) {

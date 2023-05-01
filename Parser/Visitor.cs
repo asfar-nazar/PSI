@@ -27,4 +27,5 @@ public abstract class Visitor<T> {
    public abstract T Visit (NBinary b);
    public abstract T Visit (NFnCall f);
    public abstract T Visit (NTypeCast t);
+   public abstract T Visit (NConstDecl nConstDecl);
 }
