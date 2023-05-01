@@ -60,9 +60,11 @@ public class TypeAnalyze : Visitor<NType> {
       mSymbols.Funcs.Add (f);
       mSymbols = new SymTable { Parent = mSymbols };
       f.Params.ForEach (a => a.Accept (this));
-      mSymbols.Vars.Add (new NVarDecl (f.Name, f.Return, false));
+      var rSt = new NVarDecl (f.Name, f.Return, false);
+      mSymbols.Vars.Add (rSt);
       f.Body?.Accept (this);
       mSymbols = mSymbols.Parent;
+      if (!rSt.Assigned) throw new ParseException (f.Name, "Function result not set");
       return f.Return;
    }
    #endregion
@@ -100,7 +102,13 @@ public class TypeAnalyze : Visitor<NType> {
    }
 
    public override NType Visit (NForStmt f) {
-      f.Start.Accept (this); f.End.Accept (this); f.Body.Accept (this);
+      f.Start.Accept (this);
+      if (mSymbols.Find (f.Var.Text) is NVarDecl v) {
+         if (v == null) return Error;
+         if (v.Type != f.Start.Type) return Error;
+         v.Assigned = true;
+      }  
+       f.End.Accept (this); f.Body.Accept (this);
       return Void;
    }
 
