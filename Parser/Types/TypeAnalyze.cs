@@ -64,7 +64,6 @@ public class TypeAnalyze : Visitor<NType> {
       f.Body?.Accept (this);
       mSymbols = mSymbols.Parent;
       return f.Return;
-
    }
    #endregion
 
