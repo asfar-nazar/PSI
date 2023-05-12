@@ -19,6 +19,7 @@ class Analyzer {
          Modules.ForEach (Assemble);
          RunCode ();
          GenerateOutputs ();
+         GenTable ();
       } finally {
          Modules.ForEach (RestoreBackup);
       }
@@ -105,7 +106,7 @@ class Analyzer {
                var groups = match.Groups;
                int nBlock = mBlocks.Count;
                mBlocks.Add (new Block (nBlock, int.Parse (groups[1].Value), int.Parse (groups[2].Value),
-                  int.Parse (groups[3].Value), int.Parse (groups[4].Value), groups[5].Value));
+                  int.Parse (groups[3].Value), int.Parse (groups[4].Value), groups[5].Value, module));
 
                var label = s2[..colon];
                output.Add ($"{label} ldc.i4 {nBlock}");
@@ -146,8 +147,66 @@ class Analyzer {
       ExecProgram ($"{Dir}/{RunExe}", "");
    }
 
+   double GetFileCoverage (string file) {
+      var blocks = mBlocks.Where (a => a.File == file);
+      ulong[] hits = File.ReadAllLines ($"{Dir}/hits.txt").Select (ulong.Parse).ToArray ();
+      var p = blocks.Where (a => hits[a.Id] > 0).Count () * 100.0 / blocks.Count ();
+      return Math.Round (p, 1);
+   }
+
+   void GenTable () {
+      ulong[] hits = File.ReadAllLines ($"{Dir}/hits.txt").Select (ulong.Parse).ToArray ();
+      int cBlocks = mBlocks.Count, cHit = hits.Count (a => a > 0);
+      double percent = Math.Round (100.0 * cHit / cBlocks, 1);
+
+      string text = $$"""
+            <h2>PSI Tests
+            Total coverage: {{percent}}%</h2>
+            <table>
+               <tr>
+               <th>Module</th>
+               <th>File</th>
+               <th>Coverage</th>
+               </tr>
+            """;
+      var modules = mBlocks.Select (a => a.Module).Distinct ().ToArray ();
+      foreach (var module in modules) {
+         text += $$"""
+               <tr>
+               <td>{{char.ToUpper (module[0]) + module[1..]}}</td>
+               <td></td>
+               <td></td>
+               </tr>
+            """;
+         var files = mBlocks.Where (a => a.Module == module).Select (a => a.File).Distinct ().ToArray ();
+         foreach (var file in files) {
+            text += $$"""
+               <tr>
+               <td></td>
+               <td><a href="{{Dir}}/HTML/{{Path.GetFileNameWithoutExtension (file)}}.html"/a>{{file}}</td>
+               <td>{{GetFileCoverage (file)}}</td>
+               </tr>
+            """;
+         }
+      }
+      text += "</table>";
+      string html = $$"""
+            <html><head><style>
+            .hit { background-color:aqua; }
+            .unhit { background-color:orange; }
+            table { font-family: consolas, sans-serif; border-collapse: collapse; width: 100%; }
+            td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; }
+            </style></head>
+            <body><pre>
+            {{text}}
+            </pre></body></html>
+            """;
+      File.WriteAllText ("c:/mm/table.html", html);
+   }
+   
    // Generate output HTML (colored source code with hit / unhit areas marked)
    void GenerateOutputs () {
+      Directory.CreateDirectory ($"{Dir}/HTML");
       ulong[] hits = File.ReadAllLines ($"{Dir}/hits.txt").Select (ulong.Parse).ToArray ();
       var files = mBlocks.Select (a => a.File).Distinct ().ToArray ();
       foreach (var file in files) {
@@ -209,9 +268,9 @@ class Analyzer {
 
 // Represents a basic code-coverage block (contiguous block of C# code)
 class Block {
-   public Block (int id, int sLine, int eLine, int sCol, int eCol, string file) {
+   public Block (int id, int sLine, int eLine, int sCol, int eCol, string file, string module) {
       if (file == "") file = sLastFile;
-      (Id, SLine, ELine, SCol, ECol, File) = (id, sLine - 1, eLine - 1, sCol - 1, eCol - 1, file);
+      (Id, SLine, ELine, SCol, ECol, File, Module) = (id, sLine - 1, eLine - 1, sCol - 1, eCol - 1, file, module);
       sLastFile = file;
    }
 
@@ -230,6 +289,7 @@ class Block {
    public int SPosition => SLine * 10000 + SCol;
    public int EPosition => ELine * 10000 + ECol;
    public readonly string File;
+   public readonly string Module;
    static string sLastFile = "";
 }
 
