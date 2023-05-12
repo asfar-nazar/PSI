@@ -225,8 +225,15 @@ class Analyzer {
          foreach (var block in blocks) {
             bool hit = hits[block.Id] > 0;
             string tag = $"<span class=\"{(hit ? "hit" : "unhit")}\" title = \"Hits: {hits[block.Id]}\">";
-            code[block.ELine] = code[block.ELine].Insert (block.ECol, "</span>");
-            code[block.SLine] = code[block.SLine].Insert (block.SCol, tag);
+            if (block.ELine > block.SLine) {
+               for (int i = block.ELine; i >= block.SLine; i--) {
+                  code[i] = code[i].Insert (code[i].Length, "</span>");
+                  code[i] = code[i].Insert (code[i].TakeWhile (a => a is ' ' or '\t').Count (), tag);
+               }
+            } else {
+               code[block.ELine] = code[block.ELine].Insert (block.ECol, "</span>");
+               code[block.SLine] = code[block.SLine].Insert (block.SCol, tag);
+            }
          }
          string htmlfile = $"{Dir}/HTML/{Path.GetFileNameWithoutExtension (file)}.html";
 
