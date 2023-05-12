@@ -224,7 +224,7 @@ class Analyzer {
             code[i] = code[i].Replace ('<', '\u00ab').Replace ('>', '\u00bb');
          foreach (var block in blocks) {
             bool hit = hits[block.Id] > 0;
-            string tag = $"<span class=\"{(hit ? "hit" : "unhit")}\">";
+            string tag = $"<span class=\"{(hit ? "hit" : "unhit")}\" title = \"Hits: {hits[block.Id]}\">";
             code[block.ELine] = code[block.ELine].Insert (block.ECol, "</span>");
             code[block.SLine] = code[block.SLine].Insert (block.SCol, tag);
          }
