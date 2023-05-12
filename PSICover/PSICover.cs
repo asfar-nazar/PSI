@@ -201,7 +201,7 @@ class Analyzer {
             {{text}}
             </pre></body></html>
             """;
-      File.WriteAllText ("c:/mm/table.html", html);
+      File.WriteAllText ($"{Dir}/HTML/Report.html", html);
    }
    
    // Generate output HTML (colored source code with hit / unhit areas marked)
