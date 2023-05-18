@@ -166,6 +166,8 @@ class Analyzer {
                <tr>
                <th>Module</th>
                <th>File</th>
+               <th>Total blocks</th>
+               <th>Hit blocks</th>
                <th>Coverage</th>
                </tr>
             """;
@@ -179,12 +181,20 @@ class Analyzer {
                </tr>
             """;
          var files = mBlocks.Where (a => a.Module == module).Select (a => a.File).Distinct ().ToArray ();
+         List<(string file, int tBlocks, int hBlocks, double coverage)> fTable = new ();
          foreach (var file in files) {
+            var fBlocks = mBlocks.Where (a => a.File == file);
+            int hBlocks = fBlocks.Where (a => hits[a.Id] > 0).Count ();
+            fTable.Add ((file, fBlocks.Count (), hBlocks, GetFileCoverage (file)));
+         }
+         foreach (var (file, tBlocks, hBlocks, coverage) in fTable.OrderByDescending (a => a.coverage)) {
             text += $$"""
                <tr>
                <td></td>
                <td><a href="{{Dir}}/HTML/{{Path.GetFileNameWithoutExtension (file)}}.html"/a>{{file}}</td>
-               <td>{{GetFileCoverage (file)}}</td>
+               <td>{{tBlocks}}</td>
+               <td>{{hBlocks}}</td>
+               <td>{{coverage}}</td>
                </tr>
             """;
          }
