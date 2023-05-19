@@ -191,7 +191,10 @@ class Analyzer {
             text += $$"""
                <tr>
                <td></td>
-               <td><a href="{{Dir}}/HTML/{{Path.GetFileNameWithoutExtension (file)}}.html"/a>{{file}}</td>
+               <td><a href="{{Dir}}/HTML/{{Path.GetFileNameWithoutExtension (file)}}.html"/a>
+                            {{file[(file.IndexOf (module, StringComparison.InvariantCultureIgnoreCase) + module.Length)..]
+                                                .Replace ("\\\\", "\\").TrimStart ('\\')}}
+                              </td>
                <td>{{tBlocks}}</td>
                <td>{{hBlocks}}</td>
                <td>{{coverage}}</td>
