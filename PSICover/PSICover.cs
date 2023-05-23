@@ -147,10 +147,10 @@ class Analyzer {
       ExecProgram ($"{Dir}/{RunExe}", "");
    }
 
-   double GetFileCoverage (string file) {
+   double GetFileCoverage (string file, int blockCount, int hitBlocks) {
       var blocks = mBlocks.Where (a => a.File == file);
       ulong[] hits = File.ReadAllLines ($"{Dir}/hits.txt").Select (ulong.Parse).ToArray ();
-      var p = blocks.Where (a => hits[a.Id] > 0).Count () * 100.0 / blocks.Count ();
+      var p = hitBlocks * 100.0 / blockCount;
       return Math.Round (p, 1);
    }
 
@@ -185,7 +185,8 @@ class Analyzer {
          foreach (var file in files) {
             var fBlocks = mBlocks.Where (a => a.File == file);
             int hBlocks = fBlocks.Where (a => hits[a.Id] > 0).Count ();
-            fTable.Add ((file, fBlocks.Count (), hBlocks, GetFileCoverage (file)));
+            int blockCount = fBlocks.Count ();
+            fTable.Add ((file, blockCount, hBlocks, GetFileCoverage (file, blockCount, hBlocks)));
          }
          foreach (var (file, tBlocks, hBlocks, coverage) in fTable.OrderByDescending (a => a.coverage)) {
             text += $$"""
@@ -238,14 +239,9 @@ class Analyzer {
          foreach (var block in blocks) {
             bool hit = hits[block.Id] > 0;
             string tag = $"<span class=\"{(hit ? "hit" : "unhit")}\" title = \"Hits: {hits[block.Id]}\">";
-            if (block.ELine > block.SLine) {
-               for (int i = block.ELine; i >= block.SLine; i--) {
-                  code[i] = code[i].Insert (code[i].Length, "</span>");
-                  code[i] = code[i].Insert (code[i].TakeWhile (a => a is ' ' or '\t').Count (), tag);
-               }
-            } else {
-               code[block.ELine] = code[block.ELine].Insert (block.ECol, "</span>");
-               code[block.SLine] = code[block.SLine].Insert (block.SCol, tag);
+            for (int i = block.ELine; i >= block.SLine; i--) {
+               code[i] = code[i].Insert (code[i].Length, "</span>");
+               code[i] = code[i].Insert (code[i].TakeWhile (a => char.IsWhiteSpace(a)).Count (), tag);
             }
          }
          string htmlfile = $"{Dir}/HTML/{Path.GetFileNameWithoutExtension (file)}.html";
