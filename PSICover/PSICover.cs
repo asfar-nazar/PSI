@@ -241,7 +241,10 @@ class Analyzer {
             string tag = $"<span class=\"{(hit ? "hit" : "unhit")}\" title = \"Hits: {hits[block.Id]}\">";
             for (int i = block.ELine; i >= block.SLine; i--) {
                code[i] = code[i].Insert (code[i].Length, "</span>");
-               code[i] = code[i].Insert (code[i].TakeWhile (a => char.IsWhiteSpace(a)).Count (), tag);
+               int mInsert = 0;
+               if (i == block.SLine) mInsert = code[i][block.SCol..].TakeWhile (a => char.IsWhiteSpace (a)).Count () + block.SCol;
+               else mInsert = code[i].TakeWhile (a => char.IsWhiteSpace (a)).Count ();
+               code[i] = code[i].Insert (mInsert, tag);
             }
          }
          string htmlfile = $"{Dir}/HTML/{Path.GetFileNameWithoutExtension (file)}.html";
