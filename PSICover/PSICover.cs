@@ -1,5 +1,6 @@
 ﻿namespace PSICover;
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 
 // The CoverageAnalyzer for .Net
@@ -147,18 +148,26 @@ class Analyzer {
       ExecProgram ($"{Dir}/{RunExe}", "");
    }
 
-   double GetFileCoverage (string file, int blockCount, int hitBlocks) {
-      var blocks = mBlocks.Where (a => a.File == file);
-      ulong[] hits = File.ReadAllLines ($"{Dir}/hits.txt").Select (ulong.Parse).ToArray ();
-      var p = hitBlocks * 100.0 / blockCount;
-      return Math.Round (p, 1);
-   }
+   double GetFileCoverage (string file, int blockCount, int hitBlocks) =>
+       Math.Round (hitBlocks * 100.0 / blockCount, 1);
 
    void GenTable () {
       ulong[] hits = File.ReadAllLines ($"{Dir}/hits.txt").Select (ulong.Parse).ToArray ();
       int cBlocks = mBlocks.Count, cHit = hits.Count (a => a > 0);
       double percent = Math.Round (100.0 * cHit / cBlocks, 1);
-
+      StringBuilder sB = new ();
+      sB.Append ($$"""
+            <h2>PSI Tests
+            Total coverage: {{percent}}%</h2>
+            <table>
+               <tr>
+               <th>Module</th>
+               <th>File</th>
+               <th>Total blocks</th>
+               <th>Hit blocks</th>
+               <th>Coverage</th>
+               </tr>
+            """);
       string text = $$"""
             <h2>PSI Tests
             Total coverage: {{percent}}%</h2>
@@ -173,13 +182,13 @@ class Analyzer {
             """;
       var modules = mBlocks.Select (a => a.Module).Distinct ().ToArray ();
       foreach (var module in modules) {
-         text += $$"""
+         sB.Append ($$"""
                <tr>
                <td>{{char.ToUpper (module[0]) + module[1..]}}</td>
                <td></td>
                <td></td>
                </tr>
-            """;
+            """);
          var files = mBlocks.Where (a => a.Module == module).Select (a => a.File).Distinct ().ToArray ();
          List<(string file, int tBlocks, int hBlocks, double coverage)> fTable = new ();
          foreach (var file in files) {
@@ -189,7 +198,7 @@ class Analyzer {
             fTable.Add ((file, blockCount, hBlocks, GetFileCoverage (file, blockCount, hBlocks)));
          }
          foreach (var (file, tBlocks, hBlocks, coverage) in fTable.OrderByDescending (a => a.coverage)) {
-            text += $$"""
+            sB.Append ($$"""
                <tr>
                <td></td>
                <td><a href="{{Dir}}/HTML/{{Path.GetFileNameWithoutExtension (file)}}.html"/a>
@@ -200,10 +209,10 @@ class Analyzer {
                <td>{{hBlocks}}</td>
                <td>{{coverage}}</td>
                </tr>
-            """;
+            """);
          }
       }
-      text += "</table>";
+      sB.Append ("</table>");
       string html = $$"""
             <html><head><style>
             .hit { background-color:aqua; }
@@ -212,7 +221,7 @@ class Analyzer {
             td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; }
             </style></head>
             <body><pre>
-            {{text}}
+            {{sB}}
             </pre></body></html>
             """;
       File.WriteAllText ($"{Dir}/HTML/Report.html", html);
@@ -240,10 +249,10 @@ class Analyzer {
             bool hit = hits[block.Id] > 0;
             string tag = $"<span class=\"{(hit ? "hit" : "unhit")}\" title = \"Hits: {hits[block.Id]}\">";
             for (int i = block.ELine; i >= block.SLine; i--) {
-               int mInsert = (i == block.ELine) ? mInsert = block.ECol : code[i].Length;
-               code[i] = code[i].Insert (mInsert, "</span>");
-               mInsert = (i == block.SLine) ? block.SCol: code[i].TakeWhile (a => char.IsWhiteSpace (a)).Count ();
-               code[i] = code[i].Insert (mInsert, tag);
+               int iPos = (i == block.ELine) ? block.ECol : code[i].Length;
+               code[i] = code[i].Insert (iPos, "</span>");
+               iPos = (i == block.SLine) ? block.SCol: code[i].TakeWhile (a => char.IsWhiteSpace (a)).Count ();
+               code[i] = code[i].Insert (iPos, tag);
             }
          }
          string htmlfile = $"{Dir}/HTML/{Path.GetFileNameWithoutExtension (file)}.html";
