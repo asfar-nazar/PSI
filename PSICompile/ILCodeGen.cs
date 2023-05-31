@@ -2,6 +2,8 @@
 // ILCodeGen.cs : Compiles a PSI parse tree to IL
 // ─────────────────────────────────────────────────────────────────────────────
 using System.Text;
+using System.Xml.Linq;
+
 namespace PSI;
 
 public class ILCodeGen : Visitor {
@@ -75,7 +77,26 @@ public class ILCodeGen : Visitor {
       Out ($"  {fLabel}:");
       f.ElsePart?.Accept (this);
    }
-   public override void Visit (NForStmt f) => throw new NotImplementedException ();
+   public override void Visit (NForStmt f) {
+      f.Start.Accept (this);
+      var vd = (NVarDecl)mSymbols.Find (f.Var)!;
+      var type = TMap[vd.Type];
+      StoreVar (f.Var);
+      var cLabel = NextLabel ();
+      var bLabel = NextLabel ();
+      Out ($"    br {cLabel}");
+      Out ($"    {bLabel}:");
+      f.Body.Accept (this);
+      Out ($"    {(vd.Local ? "ldloc " : $"ldsfld {type} Program::")}{vd.Name}");
+      Out ("    ldc.i4.1");
+      Out ($"    {(f.Ascending ? "add" : "sub")}");
+      Out ($"    {(vd.Local ? "stloc " : $"stsfld {type} Program::")}{vd.Name}");
+      Out ($"    {cLabel}:");
+      Out ($"    {(vd.Local ? "ldloc " : $"ldsfld {type} Program::")}{vd.Name}");
+      f.End.Accept (this);
+      Out ($"    {(f.Ascending ? "cgt" : "clt")}");
+      Out ($"    brfalse {bLabel}");
+   }
    public override void Visit (NReadStmt r) => throw new NotImplementedException ();
 
    public override void Visit (NWhileStmt w) {
