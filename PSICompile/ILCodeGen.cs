@@ -2,7 +2,6 @@
 // ILCodeGen.cs : Compiles a PSI parse tree to IL
 // ─────────────────────────────────────────────────────────────────────────────
 using System.Text;
-
 namespace PSI;
 
 public class ILCodeGen : Visitor {
@@ -150,7 +149,8 @@ public class ILCodeGen : Visitor {
 
    public override void Visit (NCallStmt c) {
       Visit (c.Params);
-      OutC ($"    call Program::{c.Name}(");
+      var pd = mSymbols.Find (c.Name) as NFnDecl;
+      OutC ($"    call void {(pd.StdLib ? "[PSILib]PSILib.Lib" : "Program")}::{pd.Name}(");
       OutC (c.Params.Select (a => $"{TMap[a.Type]}").ToCSV ());
       Out (")");
    }
@@ -174,6 +174,7 @@ public class ILCodeGen : Visitor {
             var type = TMap[vd.Type];
             if (vd.Local) Out ($"    ldloc {vd.Name}");
             else if (vd.Argument) Out ($"    ldarg {vd.Name}"); 
+            else if (vd.StdLib) Out ($"    call {type} [PSILib]PSILib.Lib::get_{vd.Name}()");
             else Out ($"    ldsfld {type} Program::{vd.Name}");
             break;
          default: throw new NotImplementedException ();
@@ -202,7 +203,8 @@ public class ILCodeGen : Visitor {
 
    public override void Visit (NFnCall f) {
       Visit (f.Params);
-      OutC ($"    call {TMap[f.Type]} Program::{f.Name}(");
+      var fd = mSymbols.Find (f.Name) as NFnDecl;
+      OutC ($"    call {TMap[f.Type]} {(fd.StdLib ? "[PSILib]PSILib.Lib":"Program")}::{fd.Name}(");
       OutC (f.Params.Select (a => $"{TMap[a.Type]}").ToCSV ());
       Out (")");
    }
