@@ -96,12 +96,14 @@ public class ILCodeGen : Visitor {
    }
 
    public override void Visit (NIfStmt f) {
-      string fLabel = NextLabel ();
+      string fLabel = NextLabel (), tLabel = NextLabel ();
       f.Condition.Accept (this);
       Out ($"    brfalse {fLabel}");
       f.IfPart.Accept (this);
+      Out ($"    br {tLabel}");
       Out ($"  {fLabel}:");
       f.ElsePart?.Accept (this);
+      Out ($"  {tLabel}:");
    }
    public override void Visit (NForStmt f) {
       f.Start.Accept (this);
