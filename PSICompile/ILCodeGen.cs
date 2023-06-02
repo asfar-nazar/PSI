@@ -149,8 +149,8 @@ public class ILCodeGen : Visitor {
 
    public override void Visit (NCallStmt c) {
       Visit (c.Params);
-      var pd = mSymbols.Find (c.Name) as NFnDecl;
-      OutC ($"    call void {(pd.StdLib ? "[PSILib]PSILib.Lib" : "Program")}::{pd.Name}(");
+      bool std = mSymbols.Find (c.Name) is NFnDecl pd && pd.StdLib;
+      OutC ($"    call void {(std ? "[PSILib]PSILib.Lib" : "Program")}::{c.Name}(");
       OutC (c.Params.Select (a => $"{TMap[a.Type]}").ToCSV ());
       Out (")");
    }
@@ -203,9 +203,8 @@ public class ILCodeGen : Visitor {
 
    public override void Visit (NFnCall f) {
       Visit (f.Params);
-      var fd = mSymbols.Find (f.Name) as NFnDecl;
-      bool std = fd != null && fd.StdLib;
-      OutC ($"    call {TMap[f.Type]} {(std ? "[PSILib]PSILib.Lib":"Program")}::{(std ? fd.Name : f.Name)}(");
+      bool std = mSymbols.Find (f.Name) is NFnDecl fd && fd.StdLib;
+      OutC ($"    call {TMap[f.Type]} {(std ? "[PSILib]PSILib.Lib":"Program")}::{f.Name}(");
       OutC (f.Params.Select (a => $"{TMap[a.Type]}").ToCSV ());
       Out (")");
    }
