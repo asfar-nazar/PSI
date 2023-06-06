@@ -86,6 +86,14 @@ public class ILCodeGen : Visitor {
       else Out ($"    stsfld {type} Program::{vd.Name}");
    }
 
+   void LoadVar (Token name) {
+      var vd = (NVarDecl)mSymbols.Find (name)!;
+      var type = TMap[vd.Type];
+      if (vd.Local) Out ($"    ldloc {vd.Name}");
+      else if (vd.Argument) Out ($"    ldarg {vd.Name}");
+      else Out ($"    ldsfld {type} Program::{vd.Name}");
+   }
+
    public override void Visit (NWriteStmt w) {
       foreach (var e in w.Exprs) {
          e.Accept (this);
@@ -106,20 +114,18 @@ public class ILCodeGen : Visitor {
    }
    public override void Visit (NForStmt f) {
       f.Start.Accept (this);
-      var vd = (NVarDecl)mSymbols.Find (f.Var)!;
-      var type = TMap[vd.Type];
       StoreVar (f.Var);
       var cLabel = NextLabel ();
       var bLabel = NextLabel ();
       Out ($"    br {cLabel}");
       Out ($"    {bLabel}:");
       f.Body.Accept (this);
-      Out ($"    {(vd.Local ? "ldloc " : $"ldsfld {type} Program::")}{vd.Name}");
+      LoadVar (f.Var);
       Out ("    ldc.i4.1");
       Out ($"    {(f.Ascending ? "add" : "sub")}");
-      Out ($"    {(vd.Local ? "stloc " : $"stsfld {type} Program::")}{vd.Name}");
+      StoreVar (f.Var);
       Out ($"    {cLabel}:");
-      Out ($"    {(vd.Local ? "ldloc " : $"ldsfld {type} Program::")}{vd.Name}");
+      LoadVar (f.Var);
       f.End.Accept (this);
       Out ($"    {(f.Ascending ? "cgt" : "clt")}");
       Out ($"    brfalse {bLabel}");
